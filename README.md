@@ -37,7 +37,7 @@ Phạm vi model hiện hành:
 
 | Hạng mục | Quy tắc |
 | --- | --- |
-| Thị trường | Các khu vực có trong dữ liệu train và `SUPPORTED_AREAS` |
+| Thị trường | Các khu vực có trong artifact hiện hành từ Train + Validation |
 | Loại hình | Các loại nhà ở xuất hiện trong dữ liệu train |
 | Diện tích | `5–500 m²` |
 | Giá mục tiêu | `100–50.000 triệu VND`, là giá niêm yết |
@@ -242,14 +242,15 @@ khi trình bày project.
 Ví dụ dưới đây dùng input `Nhà riêng`, `Quận 1`, `75 m²`, 3 phòng ngủ tại ngày
 `2026-09-10`. Field `market_age_days` giúp người dùng thấy reference data đã cũ
 bao lâu; `warnings` vẫn là cảnh báo cụ thể, không gom thành reliability score.
-Response dưới đây rút gọn danh sách comparables còn một mục từ lần chạy hiện tại.
+Response dưới đây là bản rút gọn từ một lần kiểm tra artifact hiện hành; API thực tế
+có thể trả tối đa 4 comparables tùy input và mốc `as_of_date`.
 
 ```json
 {
-  "predicted_price_million": 13338.1,
+  "predicted_price_million": 13144.5,
   "prediction_interval": {
-    "lower_million": 6890.8,
-    "upper_million": 25816.8,
+    "lower_million": 6790.8,
+    "upper_million": 25442.2,
     "coverage": 0.8
   },
   "comparables": [
@@ -300,10 +301,14 @@ hcmc-real-estate-price-intelligence/
 │   │   ├── validation.py                # Numeric/date validation
 │   │   ├── cleaning.py                 # Data quality + listing dedup
 │   │   ├── identity.py                 # Property identity resolution
+│   │   ├── geo.py                       # Chuẩn hóa khu vực và GPS
 │   │   └── split.py                    # Canonical group temporal split
 │   ├── features/
 │   │   ├── builder.py                  # Feature builder dùng chung
 │   │   ├── context.py                  # Train-only FeatureContext
+│   │   ├── geospatial.py               # GPS và khoảng cách tới CBD
+│   │   ├── structural.py               # Đặc trưng kết cấu
+│   │   ├── temporal.py                 # Đặc trưng thời gian
 │   │   └── text.py                     # Text flags
 │   ├── modeling/
 │   │   ├── baselines.py
@@ -314,11 +319,13 @@ hcmc-real-estate-price-intelligence/
 │   ├── calibration/conformal.py        # Split conformal
 │   ├── comparables/
 │   │   ├── context.py
-│   │   └── engine.py                   # Point-in-time evidence retrieval
+│   │   ├── engine.py                   # Point-in-time evidence retrieval
+│   │   └── evaluator.py                # Đánh giá comparable baseline
 │   ├── evaluation/
 │   │   ├── metrics.py
 │   │   ├── evaluator.py
-│   │   └── report.py
+│   │   ├── report.py
+│   │   └── slices.py                   # Phân tích sai số theo lát cắt
 │   ├── serving/
 │   │   ├── predictor.py
 │   │   ├── input_validation.py
@@ -326,6 +333,7 @@ hcmc-real-estate-price-intelligence/
 │   ├── artifacts/
 │   │   ├── loader.py
 │   │   └── writer.py
+│   ├── evaluate.py                     # Kiểm tra report hiện hành
 │   └── pipeline.py                     # Entry point duy nhất
 ├── artifacts/
 │   ├── model.joblib
@@ -339,6 +347,7 @@ hcmc-real-estate-price-intelligence/
 ├── tests/
 ├── .github/workflows/ci.yml
 ├── Dockerfile
+├── ruff.toml
 ├── requirements.txt
 ├── requirements-dev.txt
 └── README.md
@@ -438,7 +447,15 @@ docker build -t hcmc-real-estate-price-intelligence .
 docker run --rm -p 8000:8000 hcmc-real-estate-price-intelligence
 ```
 
-Streamlit là demo local riêng và có thể chạy bằng lệnh `streamlit run` ở trên.
+Nếu cổng `8000` trên máy đã được dùng, đổi cổng phía máy host nhưng giữ cổng
+container là `8000`:
+
+```powershell
+docker run --rm -p 18001:8000 hcmc-real-estate-price-intelligence
+```
+
+Khi đó mở API tại <http://127.0.0.1:18001/docs>. Container chỉ chạy FastAPI;
+Streamlit vẫn là demo local riêng và có thể chạy bằng lệnh `streamlit run` ở trên.
 
 ## CI
 
